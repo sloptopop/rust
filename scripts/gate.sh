@@ -47,12 +47,19 @@ if [ "${1:-}" != "--fast" ]; then
     # Mutants are compiled with lints capped: a mutant like "replace body
     # with Default" leaves unused parameters, which warnings=deny rejects.
     # Exit 3 means some mutants made the tests hang (e.g. an endless read
-    # loop) and none were missed: a hang is the tests noticing the change.
+    # loop): a hang is the tests noticing the change. cargo-mutants also
+    # exits 3 when other mutants in the same run were missed, so the exit
+    # code alone cannot prove "none missed"; missed.txt can.
     echo "gate: mutation testing" >&2
     status=0
     cargo mutants --cap-lints=true || status=$?
     if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
         exit "$status"
+    fi
+    if [ -s mutants.out/missed.txt ]; then
+        echo "gate: missed mutants:" >&2
+        cat mutants.out/missed.txt >&2
+        exit 2
     fi
 fi
 
