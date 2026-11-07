@@ -3,6 +3,7 @@
 
 use std::fs;
 use std::io::{BufReader, Write};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use serde_json::Value;
@@ -86,18 +87,25 @@ fn run_case(name: &str, case: &Value, version: &str) {
     );
 }
 
+/// The conformance case files, sorted by path.
+// det-expect(clippy::disallowed_methods): the test's one directory read; the paths are sorted before use
+fn cases() -> Vec<PathBuf> {
+    let mut paths: Vec<PathBuf> = fs::read_dir(cli_dir().join("conformance/cases"))
+        .expect("cases directory")
+        .map(|entry| entry.expect("dir entry").path())
+        .filter(|path| path.extension().is_some_and(|e| e == "json"))
+        .collect();
+    paths.sort();
+    paths
+}
+
 #[test]
 fn every_conformance_case_passes() {
     let client = Client::start(options()).expect("client should start");
     let version = client.server_info().server_version.clone();
     client.close().expect("close");
 
-    let mut paths: Vec<_> = fs::read_dir(cli_dir().join("conformance/cases"))
-        .expect("cases directory")
-        .map(|entry| entry.expect("dir entry").path())
-        .filter(|path| path.extension().is_some_and(|e| e == "json"))
-        .collect();
-    paths.sort();
+    let paths = cases();
     assert!(paths.len() >= 14, "found {} cases", paths.len());
     for path in paths {
         let case: Value =
